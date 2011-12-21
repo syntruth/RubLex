@@ -46,6 +46,7 @@ module RubLex
 
       if (rand(100) + 1) <= @chance
         syl = @syllables[rand(@syllables.length)]
+        syl.gsub!(/_/, " ")
       end
 
       return syl
