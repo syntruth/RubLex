@@ -18,11 +18,13 @@ backwards upwards downwards sidewards
 lofty buried
 holy wicked
 dirty clean
+steel iron copper bronze golden silver brass tin
 
 [noun]
 cow pig horse chicken goose duck rooster cock
 dog cat mouse rat eagle hawk owl raptor 
-deer hart moose 
+deer hart moose shrew fox wolf bear boar
+snake viper serpent
 lion tiger cougar lynx 
 griffin dragon wyvern troll unicorn
 drake pixie phoenix
