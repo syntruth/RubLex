@@ -104,7 +104,7 @@ module RubLex
         fp.readlines.each do |line|
           linenum += 1
 
-          line.gsub(/#.*/, '')
+          line.gsub!(/#.*$/, '')
 
           if @verbose and not line.strip.empty?
             puts "Working on line:\n    %s - %s" % [linenum, line]
@@ -154,7 +154,7 @@ module RubLex
 
               # If this is 0, that's an error.
               if num.zero?
-                raise RubLexError, "Rule Error in line: %s - %s" % [linenum, line]
+                raise RubLexError, "0 in group %s: %s - %s" % [current, linenum, line]
               end
 
               # Increment idx to grab the next part.
@@ -169,6 +169,8 @@ module RubLex
                 num.times do
                   rules[current].push(syl)
                 end
+              else
+                raise RubLexError, "Dangling number in group %s: %s - %s" % [current, linenum, line]
               end
 
             else
@@ -194,7 +196,7 @@ module RubLex
           syl  = syllables[idx]
 
           if (num <= 0 or num > 100) or syl.nil?
-            raise RubLexError, "Syllable Percentile Error: %s" % syllables[idx]
+            raise RubLexError, "Syllable Percentile Error: %s %s" % [num, syllables[idx]]
           end
         end
 
@@ -225,10 +227,67 @@ module RubLex
 # End Module
 end
 
-# Main for testing
-#f = "lexes/test.lex"
-#lex = RubLex::Lexicon.new(f, true, true)
-#5.times { puts lex.generate }
+# Main if we're not being loaded as a lib.
+if __FILE__ == $0
+  require "getoptlong"
+
+  lexfile = nil
+  number  = 5
+  caps    = false
+  verbose = false
+
+  usage = "
+  %s
+
+  -f | --file= <file>
+    The lexicon rules file to use.
+
+  -n | --num= <number>
+    How many words to generate. Defaults to 5.
+
+  -c | --caps
+    Capitalize the generated words.
+
+  -v | --verbose
+    Turns on parsing verbosity.
+
+  - h | --helps
+    Shows this usage text.
+
+  "
+
+  opts = GetoptLong.new(
+    ["--file",    "-f", GetoptLong::REQUIRED_ARGUMENT],
+    ["--num",     "-n", GetoptLong::REQUIRED_ARGUMENT],
+    ["--caps",    "-c", GetoptLong::NO_ARGUMENT],
+    ["--verbose", "-v", GetoptLong::NO_ARGUMENT],
+    ["--help",    "-h", GetoptLong::NO_ARGUMENT]
+  )
+
+  opts.each do |opt, arg|
+    case opt
+    when "-f", "--file"
+      lexfile = arg
+    when "-n", "--num"
+      number = arg.to_i
+    when "-c", "--caps"
+      caps = true
+    when "-v", "--verbose"
+      verbose = true
+    when "-h", "--help"
+      puts usage % File.basename($PROGRAM_NAME)
+      exit
+    end
+  end
+
+  if lexfile
+    lex = RubLex::Lexicon.new(lexfile, caps, verbose)
+    number.times { puts lex.generate }
+  else
+    puts "Error: Need a lexicon file name!"  
+    puts usage % File.basename($PROGRAM_NAME)
+  end
+end
 
 
 
