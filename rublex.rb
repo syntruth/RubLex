@@ -1,3 +1,4 @@
+#!/usr/bin/env ruby
 # Copyright 2011 Randy Carnahan <syntruth at gmail>
 #
 # This software is provided 'as-is', without any express or implied
@@ -20,8 +21,6 @@
 # 3. This notice may not be removed or altered from any source distribution.
 
 module RubLex
-
-  GroupRE = /^\[(.+?)\](.*?)$/
 
   class RubLexError < Exception
   end
@@ -62,46 +61,60 @@ module RubLex
     attr :verbose
     attr :chain
 
-    def initialize(file, caps=false, verbose=false)
-      @file    = file
+    # By default, this class expects to get it's lexicon
+    # rules from a file. Subclass and overwrite get_rules()
+    # to obtain the rules from another source.
+    # That is the reason get_rules() is a private method;
+    # use load() to obtain the rules.
+    def initialize(source, caps=false, verbose=false)
+      @source  = source
       @caps    = caps
       @chain   = []
       @verbose = verbose
 
-      get_rules()
+      self.load()
     end
 
     def generate
-      word = @chain.collect { |rule| rule.choose }.join("")
-      word = word.capitalize if @caps
-      return word
+      word = @chain.inject("") do |w, rule|
+        w += rule.choose 
+      end
+
+      return @caps ? word.capitalize : word
     end
 
-    def reload
-      get_rules()
+    def load
+      return get_rules()
     end
 
   private
 
     def get_rules
-      current   = nil
-      syllables = []
-      rules     = {}
+      # This regex matchs groups in []'s followed
+      # by any option text that is meant to be parsed.
+      group_re  = /^\[(.+?)\](.*?)$/
 
-      File.open(@file) do |fp|
+      current   = nil # Which group are we working on?
+      syllables = []  # Holds the Syllables for further parsing.
+      rules     = {}  # Hash of the syllable rule groups.
+      idx       = 0   # For using index access in our list loops.
+      linenum   = 0   # For reporting errors better.
+
+      File.open(@source) do |fp|
         fp.readlines.each do |line|
+          linenum += 1
+
           line.gsub(/#.*/, '')
 
-          match = line.match(GroupRE)
+          if @verbose and not line.strip.empty?
+            puts "Working on line:\n    %s - %s" % [linenum, line]
+          end
+
+          match = line.match(group_re)
 
           if match
             current = match.captures.first
-
-            if match.captures.last.strip.empty?
-              next
-            else
-              line = match.captures.last.strip
-            end
+            line    = match.captures.last
           end
 
           line.strip!
@@ -112,7 +125,8 @@ module RubLex
 
           if current == "syllable"
             if parts.empty?
-              raise RubLexError, "Syllables sequence not defined!"
+              raise RubLexError, 
+                    "%s - Syllables sequence not defined!" % linenum
             end
 
             syllables = parts
@@ -120,49 +134,59 @@ module RubLex
             next
           end
 
-          unless current and not parts.empty?
-            raise RubLexError, "Values outside of a syllable group: %s" % line
+          if current.nil? and parts.empty?
+            raise RubLexError, "Values outside of group: %s - %s" % [linenum, line]
           end
 
-          rules[current] = [] unless rules.has_key?(current)                
+          unless rules.has_key?(current)                
+            rules[current] = []
+          end
 
-          parts.length.times do |i|
-            part = parts[i]
+          idx = 0 # Reset the index counter
+
+          while idx < parts.length
+            part = parts[idx]
 
             # If this is a number, convert it, then add that
             # many of the following syllable to the rules list.
             if part.match(/^\d/)
-              part = part.to_i
+              num = part.to_i
 
               # If this is 0, that's an error.
-              if part.zero?
-                raise RubLexError, "Rule Error in line: %s" % line 
+              if num.zero?
+                raise RubLexError, "Rule Error in line: %s - %s" % [linenum, line]
               end
+
+              # Increment idx to grab the next part.
+              idx += 1
 
               # Grab the next syllable. This will be nil if
-              # i+1 is >= parts.length satisfying the if
+              # idx is >= parts.length satisfying the if
               # block following.
-              syl = parts[i+1]
+              syl = parts[idx]
 
               if syl
-                # We subtract one, because we will be adding the
-                # following syllable as well on the next iteration.
-                (part - 1).times { rules[current].push(syl) } 
+                num.times do
+                  rules[current].push(syl)
+                end
               end
+
             else
               rules[current].push(part)
             end
+
+            idx += 1
           end
         end
       end
 
       raise RubLexError, "No Syllables Given!" if syllables.empty?
 
-      idx = 0
+      idx = 0 # Reset the index
 
       while idx < syllables.length
-        num  = 100
-        syl  = syllables[idx]
+        num = 100
+        syl = syllables[idx]
 
         if syl.match(/^\d/)
           idx += 1
@@ -188,8 +212,9 @@ module RubLex
       end
 
       if @verbose
+        puts "Syllable Groups:"
         @chain.each do |rule|
-          puts "%s (%s): %s" % [rule.group, rule.chance, rule.syllables.length]
+          puts "  %s (%s): %s" % [rule.group, rule.chance, rule.syllables.length]
         end
       end
 
@@ -199,4 +224,11 @@ module RubLex
 
 # End Module
 end
+
+# Main for testing
+#f = "lexes/test.lex"
+#lex = RubLex::Lexicon.new(f, true, true)
+#5.times { puts lex.generate }
+
+
 
