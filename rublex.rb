@@ -229,63 +229,47 @@ end
 
 # Main if we're not being loaded as a lib.
 if __FILE__ == $0
-  require "getoptlong"
+  require "optparse"
 
+  # Defaults
   lexfile = nil
   number  = 5
   caps    = false
   verbose = false
 
-  usage = "
-  %s
+  options = OptionParser.new do |opts|
+    opts.banner = "Usage: %s [options]" % File.basename($0)
 
-  -f | --file= <file>
-    The lexicon rules file to use.
+    opts.on("-f", "--file FILE", "The lexicon file to use.") do |v|
+      lexfile = v
+    end
 
-  -n | --num= <number>
-    How many words to generate. Defaults to 5.
+    opts.on("-n", "--num", Integer, "How many words to generate.") do |v|
+      number = v
+    end
 
-  -c | --caps
-    Capitalize the generated words.
+    opts.on("-c", "--[no-]caps", "Capitalize each word.") do |v|
+      caps = v
+    end
 
-  -v | --verbose
-    Turns on parsing verbosity.
+    opts.on("-v", "--[no-]verbose", "Turns on verbosity of parsing.") do |v|
+      verbose = v
+    end
 
-  - h | --helps
-    Shows this usage text.
-
-  "
-
-  opts = GetoptLong.new(
-    ["--file",    "-f", GetoptLong::REQUIRED_ARGUMENT],
-    ["--num",     "-n", GetoptLong::REQUIRED_ARGUMENT],
-    ["--caps",    "-c", GetoptLong::NO_ARGUMENT],
-    ["--verbose", "-v", GetoptLong::NO_ARGUMENT],
-    ["--help",    "-h", GetoptLong::NO_ARGUMENT]
-  )
-
-  opts.each do |opt, arg|
-    case opt
-    when "-f", "--file"
-      lexfile = arg
-    when "-n", "--num"
-      number = arg.to_i
-    when "-c", "--caps"
-      caps = true
-    when "-v", "--verbose"
-      verbose = true
-    when "-h", "--help"
-      puts usage % File.basename($PROGRAM_NAME)
+    opts.on("-h", "--help", "Prints usage message.") do
+      puts opts
       exit
     end
   end
+
+  options.parse!
 
   if lexfile
     lex = RubLex::Lexicon.new(lexfile, caps, verbose)
     number.times { puts lex.generate }
   else
     puts "Error: Need a lexicon file name!"  
-    puts usage % File.basename($PROGRAM_NAME)
+    puts options
   end
 end
 
